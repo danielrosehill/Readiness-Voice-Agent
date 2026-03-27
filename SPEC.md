@@ -96,24 +96,25 @@ All checklists are sourced from the existing PWA data model. The voice agent sup
 
 ### Voice / AI Stack
 
-**Speech-to-Text (STT):**
-- Android on-device `SpeechRecognizer` API (offline-capable, no network needed)
-- Continuous listening mode during active checklist session
-- Intent classification done locally via keyword matching for core commands (done/skip/back/etc.)
-- Fallback to LLM for ambiguous or conversational input
+**Primary mode — Gemini Live API (audio-to-audio):**
+- The Live API handles STT, reasoning, and TTS in a single audio-to-audio stream
+- No separate STT/TTS pipeline needed — the model listens and speaks natively
+- WebSocket-based bidirectional streaming for real-time conversation
+- Function calling used for checklist state management (mark item done, skip, go back, etc.)
 
-**Text-to-Speech (TTS):**
-- Android built-in `TextToSpeech` engine (offline, zero-latency)
-- Configurable speech rate and voice in settings
-- Future: premium cloud TTS (ElevenLabs / Google Cloud TTS) as optional upgrade
+**Offline fallback — Android on-device:**
+- When no network is available, falls back to Android built-in `SpeechRecognizer` (STT) + `TextToSpeech` (TTS)
+- Local keyword matching for core commands (done/skip/back/repeat/etc.)
+- Static `details` and `subItems` text read aloud instead of generated responses
+- Core checklist flow remains functional offline, just without conversational AI
 
-**LLM Inference (for agent logic / conversational responses):**
-- **Provider**: [OpenRouter](https://openrouter.ai/)
-- **Recommended model**: `google/gemini-2.5-flash` — fast, cheap ($0.15/M input, $0.60/M output), strong instruction-following, sufficient for structured checklist guidance
-- **Alternative model**: `anthropic/claude-3.5-haiku` — if higher reasoning quality needed for contextual emergency guidance
-- Used for: contextual detail expansion ("tell me more"), natural conversation handling, summarization at checklist end
-- NOT used for: core command recognition (handled locally) or TTS (handled by Android)
-- API key stored locally on device (user provides their own OpenRouter key in settings)
+**Voice AI Model:**
+- **Model**: [`gemini-3.1-flash-live-preview`](https://ai.google.dev/gemini-api/docs/live-api) — Google's low-latency audio-to-audio model optimized for real-time dialogue
+- **Key capabilities**: Native audio input/output, function calling, thinking, 131K input / 65K output tokens
+- **Why this model**: Audio-to-audio eliminates the STT→LLM→TTS pipeline — the model handles the entire voice conversation natively with minimal latency
+- **Authentication**: BYOK (Bring Your Own Key) — user provides their own Google AI API key in app settings
+- **Thinking level**: `minimal` (default) for lowest latency during checklist walkthroughs
+- See [`model-reference/gemini-3.1-flash-live-preview.md`](model-reference/gemini-3.1-flash-live-preview.md) for full model spec
 
 ### Data
 - Checklist data embedded in app (synced from PWA `checklists.ts` at build time)
@@ -121,9 +122,10 @@ All checklists are sourced from the existing PWA data model. The voice agent sup
 - No account required — fully local-first
 
 ### Offline Considerations
-- **Core flow works fully offline**: STT (on-device) + TTS (on-device) + keyword command matching + bundled checklist data
-- LLM-powered features (contextual details, conversational responses) require network connectivity
-- Graceful degradation: if offline, "tell me more" reads the static `details` and `subItems` text instead of generating a response
+- **Primary mode (Gemini Live API)** requires network connectivity for the audio-to-audio stream
+- **Offline fallback** provides a degraded but functional experience using Android on-device STT/TTS + local keyword matching
+- Checklist data is always bundled — no network needed for content
+- Graceful degradation: if offline, "tell me more" reads the static `details` and `subItems` text instead of generating a conversational response
 
 ## UI (Minimal)
 
