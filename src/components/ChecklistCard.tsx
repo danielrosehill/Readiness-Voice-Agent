@@ -6,15 +6,16 @@ import { Colors } from '../utils/constants';
 interface Props {
   checklist: ChecklistEntry;
   onPress: () => void;
+  onPlayback?: () => void;
 }
 
-export function ChecklistCard({ checklist, onPress }: Props) {
+export function ChecklistCard({ checklist, onPress, onPlayback }: Props) {
   const criticalCount = checklist.items.filter((i) => i.critical).length;
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <View style={styles.card}>
       <View style={[styles.colorStripe, { backgroundColor: checklist.color }]} />
-      <View style={styles.content}>
+      <TouchableOpacity style={styles.content} onPress={onPress} activeOpacity={0.7}>
         <Text style={styles.title}>{checklist.title}</Text>
         {checklist.description ? (
           <Text style={styles.description} numberOfLines={2}>
@@ -27,8 +28,13 @@ export function ChecklistCard({ checklist, onPress }: Props) {
             <Text style={styles.criticalText}>{criticalCount} critical</Text>
           )}
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+      {onPlayback && (
+        <TouchableOpacity style={styles.listenButton} onPress={onPlayback} activeOpacity={0.6}>
+          <Text style={styles.listenIcon}>🔊</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -71,5 +77,15 @@ const styles = StyleSheet.create({
     color: Colors.critical,
     fontSize: 12,
     fontWeight: '500',
+  },
+  listenButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    borderLeftWidth: 1,
+    borderLeftColor: Colors.border,
+  },
+  listenIcon: {
+    fontSize: 22,
   },
 });

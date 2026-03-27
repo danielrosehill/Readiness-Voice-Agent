@@ -33,6 +33,7 @@ export function HomeScreen({ navigation }: Props) {
           <ChecklistCard
             checklist={item}
             onPress={() => navigation.navigate('Session', { checklistId: item.id })}
+            onPlayback={() => navigation.navigate('Playback', { checklistId: item.id })}
           />
         )}
         renderSectionHeader={({ section }) => (

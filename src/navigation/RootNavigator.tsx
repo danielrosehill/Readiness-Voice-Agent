@@ -3,12 +3,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeScreen } from '../screens/HomeScreen';
 import { SessionScreen } from '../screens/SessionScreen';
 import { SummaryScreen } from '../screens/SummaryScreen';
+import { PlaybackScreen } from '../screens/PlaybackScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { Colors } from '../utils/constants';
 
 export type RootStackParamList = {
   Home: undefined;
   Session: { checklistId: string };
+  Playback: { checklistId: string };
   Summary: {
     checklistId: string;
     checked: number;
@@ -33,6 +35,7 @@ export function RootNavigator() {
     >
       <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Session" component={SessionScreen} options={{ title: 'Voice Session' }} />
+      <Stack.Screen name="Playback" component={PlaybackScreen} options={{ title: 'Listen' }} />
       <Stack.Screen name="Summary" component={SummaryScreen} options={{ title: 'Summary', headerBackVisible: false }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
     </Stack.Navigator>
