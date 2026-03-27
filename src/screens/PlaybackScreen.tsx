@@ -3,7 +3,6 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getChecklistById } from '../data/checklists';
 import { usePlayback, PlaybackStatus } from '../hooks/usePlayback';
-import { useSettings } from '../hooks/useSettings';
 import { Colors } from '../utils/constants';
 import { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -11,7 +10,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Playback'>;
 
 export function PlaybackScreen({ route }: Props) {
   const checklist = getChecklistById(route.params.checklistId);
-  const { settings } = useSettings();
 
   if (!checklist) {
     return (
@@ -21,18 +19,16 @@ export function PlaybackScreen({ route }: Props) {
     );
   }
 
-  return <PlaybackActive checklist={checklist} apiKey={settings.apiKey} />;
+  return <PlaybackActive checklist={checklist} />;
 }
 
 function PlaybackActive({
   checklist,
-  apiKey,
 }: {
   checklist: NonNullable<ReturnType<typeof getChecklistById>>;
-  apiKey: string;
 }) {
-  const { status, error, currentItemIndex, generateAndPlay, stop, pause, resume } =
-    usePlayback(checklist, apiKey);
+  const { status, error, currentItemIndex, play, stop, pause, resume } =
+    usePlayback(checklist);
   const listRef = useRef<FlatList>(null);
 
   // Auto-scroll to current item
@@ -67,12 +63,6 @@ function PlaybackActive({
       </View>
 
       {error && <Text style={styles.errorText}>{error}</Text>}
-
-      {!apiKey && status === 'idle' && (
-        <Text style={styles.hintText}>
-          No API key set — will use device text-to-speech.
-        </Text>
-      )}
 
       {/* Checklist items */}
       <FlatList
@@ -129,15 +119,11 @@ function PlaybackActive({
       {/* Controls */}
       <View style={styles.controls}>
         {status === 'idle' || status === 'done' || status === 'error' ? (
-          <TouchableOpacity style={styles.playButton} onPress={generateAndPlay}>
+          <TouchableOpacity style={styles.playButton} onPress={play}>
             <Text style={styles.buttonText}>
               {status === 'done' ? '↻ Replay' : '▶ Listen'}
             </Text>
           </TouchableOpacity>
-        ) : status === 'generating' ? (
-          <View style={styles.generatingButton}>
-            <Text style={styles.buttonTextDim}>Generating audio…</Text>
-          </View>
         ) : status === 'playing' ? (
           <View style={styles.controlRow}>
             <TouchableOpacity style={styles.pauseButton} onPress={pause}>
@@ -164,7 +150,6 @@ function PlaybackActive({
 
 const STATUS_LABELS: Record<PlaybackStatus, string> = {
   idle: 'Ready to play',
-  generating: 'Generating audio…',
   playing: 'Playing',
   paused: 'Paused',
   done: 'Finished',
@@ -173,7 +158,6 @@ const STATUS_LABELS: Record<PlaybackStatus, string> = {
 
 const STATUS_COLORS: Record<PlaybackStatus, string> = {
   idle: Colors.textSecondary,
-  generating: Colors.warning,
   playing: Colors.success,
   paused: Colors.warning,
   done: Colors.accent,
@@ -221,11 +205,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: Colors.critical,
     fontSize: 14,
-    textAlign: 'center',
-  },
-  hintText: {
-    color: Colors.warning,
-    fontSize: 13,
     textAlign: 'center',
   },
   list: {
@@ -317,22 +296,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 30,
   },
-  generatingButton: {
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 40,
-    paddingVertical: 14,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
-  },
-  buttonTextDim: {
-    color: Colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

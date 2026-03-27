@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
-import { File, Paths } from 'expo-file-system';
 import { ChecklistEntry } from '../types';
-import { generateChecklistAudio, buildReadoutScript } from '../voice/GeminiTTS';
+import { getAudioAsset } from '../data/audioAssets';
 
-export type PlaybackStatus = 'idle' | 'generating' | 'playing' | 'paused' | 'done' | 'error';
+export type PlaybackStatus = 'idle' | 'playing' | 'paused' | 'done' | 'error';
 
-export function usePlayback(checklist: ChecklistEntry, apiKey: string) {
+export function usePlayback(checklist: ChecklistEntry) {
   const [status, setStatus] = useState<PlaybackStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [currentItemIndex, setCurrentItemIndex] = useState(-1);
   const soundRef = useRef<Audio.Sound | null>(null);
   const abortRef = useRef(false);
-
   const itemTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playStartTimeRef = useRef(0);
   const totalItems = checklist.items.length;
@@ -35,56 +33,33 @@ export function usePlayback(checklist: ChecklistEntry, apiKey: string) {
     Speech.stop();
   }, []);
 
-  const generateAndPlay = useCallback(async () => {
+  const play = useCallback(async () => {
     abortRef.current = false;
     setError(null);
     setCurrentItemIndex(0);
 
-    if (!apiKey) {
+    const asset = getAudioAsset(checklist.id);
+    if (asset) {
       setStatus('playing');
-      await playWithExpoSpeech();
-      return;
-    }
-
-    try {
-      setStatus('generating');
-      const script = buildReadoutScript(checklist.title, checklist.items);
-      const result = await generateChecklistAudio(apiKey, script);
-
-      if (abortRef.current) return;
-
-      if (!result) {
-        throw new Error('No audio returned from Gemini');
-      }
-
-      setStatus('playing');
-      await playAudioBase64(result.audioBase64, result.mimeType);
-    } catch (e) {
-      if (abortRef.current) return;
-      console.warn('Gemini TTS failed, falling back to device TTS:', e);
+      await playBundledAudio(asset);
+    } else {
+      // Fallback: device TTS
       setStatus('playing');
       await playWithExpoSpeech();
     }
-  }, [apiKey, checklist]);
+  }, [checklist]);
 
-  const playAudioBase64 = async (base64: string, mimeType: string) => {
+  const playBundledAudio = async (asset: number) => {
     try {
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
       });
 
-      // Write base64 audio to a temp file using expo-file-system/next
-      const isWav = mimeType.includes('wav');
-      const ext = isWav ? 'wav' : 'mp3';
-      const file = new File(Paths.cache, `checklist-readout.${ext}`);
-      // Decode base64 to bytes and write
-      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-      file.write(bytes);
-
-      const { sound } = await Audio.Sound.createAsync({ uri: file.uri });
+      const { sound } = await Audio.Sound.createAsync(asset);
       soundRef.current = sound;
 
+      // Get duration to estimate item progress
       const statusResult = await sound.getStatusAsync();
       const durationMs = statusResult.isLoaded ? statusResult.durationMillis ?? 0 : 0;
       const msPerItem = durationMs > 0 ? durationMs / totalItems : 3000;
@@ -106,8 +81,9 @@ export function usePlayback(checklist: ChecklistEntry, apiKey: string) {
 
       await sound.playAsync();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Playback failed');
-      setStatus('error');
+      // Fallback to device TTS
+      console.warn('Bundled audio playback failed, using device TTS:', e);
+      await playWithExpoSpeech();
     }
   };
 
@@ -156,16 +132,23 @@ export function usePlayback(checklist: ChecklistEntry, apiKey: string) {
 
   const resume = useCallback(async () => {
     if (soundRef.current) {
-      playStartTimeRef.current = Date.now() - (currentItemIndex * 3000);
-      itemTimerRef.current = setInterval(() => {
-        const elapsed = Date.now() - playStartTimeRef.current;
-        const idx = Math.min(Math.floor(elapsed / 3000), totalItems - 1);
-        setCurrentItemIndex(idx);
-      }, 500);
+      // Re-estimate timing from current position
+      const s = await soundRef.current.getStatusAsync();
+      if (s.isLoaded) {
+        const durationMs = s.durationMillis ?? 0;
+        const positionMs = s.positionMillis ?? 0;
+        const msPerItem = durationMs > 0 ? durationMs / totalItems : 3000;
+        playStartTimeRef.current = Date.now() - positionMs;
+        itemTimerRef.current = setInterval(() => {
+          const elapsed = Date.now() - playStartTimeRef.current;
+          const idx = Math.min(Math.floor(elapsed / msPerItem), totalItems - 1);
+          setCurrentItemIndex(idx);
+        }, 500);
+      }
       await soundRef.current.playAsync();
       setStatus('playing');
     }
-  }, [currentItemIndex, totalItems]);
+  }, [totalItems]);
 
   useEffect(() => {
     return () => {
@@ -178,7 +161,7 @@ export function usePlayback(checklist: ChecklistEntry, apiKey: string) {
     status,
     error,
     currentItemIndex,
-    generateAndPlay,
+    play,
     stop,
     pause,
     resume,
