@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Audio } from 'expo-av';
+import LiveAudioStream from 'react-native-live-audio-stream';
 import { ChecklistEntry, VoiceEngineEvent } from '../types';
 import { GeminiLiveEngine } from '../voice/GeminiLiveEngine';
 import { OfflineEngine } from '../voice/OfflineEngine';
 import { buildSystemPrompt } from '../data/systemPrompt';
 import { checklistTools } from '../data/tools';
 import { useChecklistState } from './useChecklistState';
-import { AUDIO_SAMPLE_RATE_INPUT } from '../utils/constants';
+import { AUDIO_SAMPLE_RATE_INPUT, AUDIO_SAMPLE_RATE_OUTPUT } from '../utils/constants';
+import { AudioChunkPlayer } from '../voice/AudioChunkPlayer';
 
 export type AgentState = 'connecting' | 'listening' | 'speaking' | 'idle' | 'error' | 'disconnected';
 
@@ -17,8 +19,8 @@ export function useVoiceSession(checklist: ChecklistEntry, apiKey: string) {
   const [error, setError] = useState<string | null>(null);
 
   const engineRef = useRef<GeminiLiveEngine | OfflineEngine | null>(null);
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const isOnline = useRef(true); // Simplified — could use NetInfo
+  const playerRef = useRef<AudioChunkPlayer | null>(null);
+  const streamingRef = useRef(false);
 
   const addTranscript = useCallback((text: string, role: 'model' | 'user') => {
     setTranscript((prev) => [...prev.slice(-20), `${role === 'model' ? 'Agent' : 'You'}: ${text}`]);
@@ -85,9 +87,9 @@ export function useVoiceSession(checklist: ChecklistEntry, apiKey: string) {
           handleToolCall(event.name, event.args, event.callId);
           break;
         case 'audio':
-          // Audio playback would be handled here.
-          // For Gemini Live, audio plays through the WebSocket connection natively.
-          // For a production app, we'd decode base64 PCM and play through expo-av.
+          // Play audio chunks through the player
+          setAgentState('speaking');
+          playerRef.current?.enqueue(event.data);
           break;
         case 'error':
           setError(event.message);
@@ -113,13 +115,14 @@ export function useVoiceSession(checklist: ChecklistEntry, apiKey: string) {
         return;
       }
 
+      // Configure audio mode for simultaneous recording + playback
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
       });
 
       // Create engine
-      const useOnline = isOnline.current && apiKey.length > 0;
+      const useOnline = apiKey.length > 0;
       const engine = useOnline ? new GeminiLiveEngine() : new OfflineEngine();
       engineRef.current = engine;
 
@@ -140,9 +143,27 @@ export function useVoiceSession(checklist: ChecklistEntry, apiKey: string) {
         engine.speakItem(0);
       }
 
-      // Start recording for online mode
+      // Start mic streaming for online mode
       if (useOnline) {
-        await startRecording();
+        // Initialize audio chunk player for output
+        playerRef.current = new AudioChunkPlayer(AUDIO_SAMPLE_RATE_OUTPUT);
+
+        // Start live audio stream from mic
+        LiveAudioStream.init({
+          sampleRate: AUDIO_SAMPLE_RATE_INPUT,
+          channels: 1,
+          bitsPerSample: 16,
+          audioSource: 6, // VOICE_RECOGNITION on Android
+          bufferSize: 4096,
+          wavFile: '', // empty = don't save to file, just stream
+        });
+
+        LiveAudioStream.on('data', (base64Chunk: string) => {
+          engineRef.current?.sendAudio(base64Chunk);
+        });
+
+        LiveAudioStream.start();
+        streamingRef.current = true;
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to start session');
@@ -151,85 +172,32 @@ export function useVoiceSession(checklist: ChecklistEntry, apiKey: string) {
   }, [apiKey, checklist, checklistState, handleEvent]);
 
   const stopSession = useCallback(async () => {
-    await stopRecording();
+    // Stop mic streaming
+    if (streamingRef.current) {
+      LiveAudioStream.stop();
+      streamingRef.current = false;
+    }
+
+    // Stop audio player
+    if (playerRef.current) {
+      playerRef.current.stop();
+      playerRef.current = null;
+    }
+
+    // Disconnect engine
     engineRef.current?.disconnect();
     engineRef.current = null;
     setAgentState('disconnected');
   }, []);
 
-  const startRecording = async () => {
-    try {
-      const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync({
-        android: {
-          extension: '.wav',
-          outputFormat: Audio.AndroidOutputFormat.DEFAULT,
-          audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
-          sampleRate: AUDIO_SAMPLE_RATE_INPUT,
-          numberOfChannels: 1,
-          bitRate: 256000,
-        },
-        ios: {
-          extension: '.wav',
-          outputFormat: Audio.IOSOutputFormat.LINEARPCM,
-          audioQuality: Audio.IOSAudioQuality.HIGH,
-          sampleRate: AUDIO_SAMPLE_RATE_INPUT,
-          numberOfChannels: 1,
-          bitRate: 256000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-        web: {},
-      });
-
-      await recording.startAsync();
-      recordingRef.current = recording;
-
-      // Poll for audio data and send to engine
-      // In a production app, we'd use a streaming approach.
-      // For MVP, we use short recording segments.
-      pollAudio();
-    } catch (e) {
-      console.error('Failed to start recording:', e);
-    }
-  };
-
-  const pollAudio = () => {
-    const interval = setInterval(async () => {
-      if (!recordingRef.current || !engineRef.current?.isConnected()) {
-        clearInterval(interval);
-        return;
-      }
-
-      try {
-        const status = await recordingRef.current.getStatusAsync();
-        if (status.isRecording && status.metering != null) {
-          // Audio is being captured — the Gemini Live API receives it through the WebSocket.
-          // With expo-av, we need to periodically stop/start recording to get chunks.
-          // This is a simplified approach — production would use a native audio streaming module.
-        }
-      } catch {
-        clearInterval(interval);
-      }
-    }, 500);
-  };
-
-  const stopRecording = async () => {
-    if (recordingRef.current) {
-      try {
-        await recordingRef.current.stopAndUnloadAsync();
-      } catch {
-        // Already stopped
-      }
-      recordingRef.current = null;
-    }
-  };
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopRecording();
+      if (streamingRef.current) {
+        LiveAudioStream.stop();
+        streamingRef.current = false;
+      }
+      playerRef.current?.stop();
       engineRef.current?.disconnect();
     };
   }, []);

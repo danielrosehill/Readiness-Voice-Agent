@@ -44,3 +44,4 @@ yarn-error.*
 *.apk
 *.aab
 *.ipa
+scripts/__pycache__/

@@ -278,6 +278,37 @@ export const homeSafetyChecklist: ChecklistSection = {
   ],
 };
 
+export const goBagChecklist: ChecklistSection = {
+  id: 'go-bag',
+  title: 'Go Bag Check & Stockup',
+  description: 'Full go bag audit — contents, condition, and resupply.',
+  color: '#2563a0',
+  items: [
+    { id: 'bag-condition', label: 'Bag Condition', critical: true, subItems: ['Zips working', 'Straps intact', 'No tears or damage'] },
+    { id: 'bag-position', label: 'Position', critical: true, subItems: ['By front door', 'Accessible in the dark', 'Not blocked by furniture'] },
+    { id: 'phone-charger', label: 'Phone Charger & Cable', critical: true, subItems: ['Correct cable type', 'Working condition'] },
+    { id: 'power-bank', label: 'Power Bank', critical: true, subItems: ['Packed', 'Charge level checked', 'Charging cable included', 'Put on charge if below 80%'] },
+    { id: 'medications', label: 'Essential Medications', critical: true, subItems: ['Packed', 'Supply for 3+ days', 'Not expired', 'Prescription copy included'] },
+    { id: 'torch', label: 'Torch', critical: true, subItems: ['Packed', 'Working', 'Batteries fresh or hand-crank'] },
+    { id: 'masks', label: 'N95 Masks', critical: true, subItems: ['One per person packed', 'Not damaged or bent'] },
+    { id: 'whistle', label: 'Emergency Whistle', subItems: ['Packed', 'Accessible without digging'] },
+    { id: 'radio', label: 'AM/FM Radio', subItems: ['Packed', 'Battery or charge OK', 'Frequency noted'] },
+    { id: 'first-aid', label: 'First Aid Kit', subItems: ['Packed', 'Bandages stocked', 'Antiseptic not expired', 'Painkillers in date'] },
+    { id: 'water', label: 'Water Bottles', critical: true, subItems: ['Packed', 'Sealed', 'At least 1L per person'] },
+    { id: 'snacks', label: 'Snacks & Energy Bars', subItems: ['Packed', 'Not expired', 'Enough for 24 hours'] },
+    { id: 'cash', label: 'Cash', subItems: ['Packed', 'Small denominations', 'NIS and/or USD'] },
+    { id: 'documents', label: 'Documents', subItems: ['Passport copies or originals', 'National ID', 'Insurance cards', 'Stored in waterproof bag'] },
+    { id: 'travel-router', label: 'Travel Router', subItems: ['Packed', 'Charged or has cable'] },
+    { id: 'clothing', label: 'Change of Clothes', subItems: ['Packed', 'Weather-appropriate', 'Compact'] },
+    { id: 'hygiene', label: 'Hygiene Basics', subItems: ['Wet wipes', 'Toothbrush', 'Small toothpaste', 'Hand sanitiser'] },
+    { id: 'eye-ear', label: 'Eye Mask & Earplugs', subItems: ['Packed — for shelter stays'] },
+    { id: 'religious', label: 'Religious Effects', subItems: ['Siddur', 'Kippah', 'Other essentials as needed'] },
+    { id: 'baby-supplies', label: 'Baby Supplies (if applicable)', subItems: ['Diapers', 'Wipes', 'Formula', 'Bottle', 'Pacifier', 'Change of clothes'] },
+    { id: 'caffeine', label: 'Caffeine Pills', subItems: ['Packed', 'Not expired'] },
+    { id: 'blanket', label: 'Emergency Blanket / Tent', subItems: ['Packed — for extended shelter stays'] },
+  ],
+};
+
 export const pantryCategories: PantryCategory[] = [
   { category: 'Canned Goods', items: 'Tuna · Chickpeas · Corn · Beans · Tomatoes · Sardines', shelfLife: '2–5 years' },
   { category: 'Grains & Starches', items: 'Rice · Pasta · Couscous · Matza/crackers · Instant oatmeal', shelfLife: '1–2 years' },
@@ -327,6 +358,7 @@ export function getAllChecklists(): ChecklistEntry[] {
     sectionToEntry(shabbatChecklist, 'special'),
     sectionToEntry(hfcAppChecklist, 'special'),
     sectionToEntry(mamadChecklist, 'special'),
+    sectionToEntry(goBagChecklist, 'special'),
     sectionToEntry(homeSafetyChecklist, 'special'),
   ];
 }
