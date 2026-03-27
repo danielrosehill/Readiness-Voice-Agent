@@ -1,4 +1,4 @@
-import { GoogleGenAI, Modality, Type, type Session, type LiveServerMessage } from '@google/genai';
+import { GoogleGenAI, Modality, Type, type Session, type LiveServerMessage } from '@google/genai/web';
 import { VoiceEngineInterface, VoiceEngineConfig, VoiceEngineEvent } from '../types';
 import { GEMINI_MODEL, AUDIO_SAMPLE_RATE_INPUT } from '../utils/constants';
 
