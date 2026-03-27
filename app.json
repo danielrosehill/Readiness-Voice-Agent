@@ -2,6 +2,7 @@
   "expo": {
     "name": "Readiness Voice Agent",
     "slug": "readiness-voice-agent",
+    "owner": "danielrosehill",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -34,6 +35,11 @@
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "647f1774-4bcc-4259-8dd3-13a2a0365db4"
+      }
+    }
   }
 }
