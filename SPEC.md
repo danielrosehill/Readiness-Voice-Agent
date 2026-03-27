@@ -87,10 +87,33 @@ All checklists are sourced from the existing PWA data model. The voice agent sup
 - **Android** (native Kotlin or React Native — TBD)
 - Minimum SDK: Android 8.0 (API 26)
 
-### Voice / AI Stack (TBD — options under evaluation)
-- **Option A**: Vercel AI SDK + AI Gateway with a streaming voice interface
-- **Option B**: On-device speech recognition (Android SpeechRecognizer) + cloud LLM for agent logic
-- **Option C**: Dedicated voice agent platform (e.g., Vapi, Retell, ElevenLabs Conversational AI)
+### Distribution
+- **Direct APK installation** (sideload) — no Play Store
+- APK published as GitHub Release assets on this repository
+- Users install via direct download link or QR code
+- No signing key rotation concerns (self-signed / debug-upgradable key)
+- Future: F-Droid listing if demand warrants
+
+### Voice / AI Stack
+
+**Speech-to-Text (STT):**
+- Android on-device `SpeechRecognizer` API (offline-capable, no network needed)
+- Continuous listening mode during active checklist session
+- Intent classification done locally via keyword matching for core commands (done/skip/back/etc.)
+- Fallback to LLM for ambiguous or conversational input
+
+**Text-to-Speech (TTS):**
+- Android built-in `TextToSpeech` engine (offline, zero-latency)
+- Configurable speech rate and voice in settings
+- Future: premium cloud TTS (ElevenLabs / Google Cloud TTS) as optional upgrade
+
+**LLM Inference (for agent logic / conversational responses):**
+- **Provider**: [OpenRouter](https://openrouter.ai/)
+- **Recommended model**: `google/gemini-2.5-flash` — fast, cheap ($0.15/M input, $0.60/M output), strong instruction-following, sufficient for structured checklist guidance
+- **Alternative model**: `anthropic/claude-3.5-haiku` — if higher reasoning quality needed for contextual emergency guidance
+- Used for: contextual detail expansion ("tell me more"), natural conversation handling, summarization at checklist end
+- NOT used for: core command recognition (handled locally) or TTS (handled by Android)
+- API key stored locally on device (user provides their own OpenRouter key in settings)
 
 ### Data
 - Checklist data embedded in app (synced from PWA `checklists.ts` at build time)
@@ -98,9 +121,9 @@ All checklists are sourced from the existing PWA data model. The voice agent sup
 - No account required — fully local-first
 
 ### Offline Considerations
-- Speech recognition should work offline if possible (Android on-device models)
-- Checklist data is bundled — no network needed for content
-- AI agent responses may require connectivity (depends on stack choice)
+- **Core flow works fully offline**: STT (on-device) + TTS (on-device) + keyword command matching + bundled checklist data
+- LLM-powered features (contextual details, conversational responses) require network connectivity
+- Graceful degradation: if offline, "tell me more" reads the static `details` and `subItems` text instead of generating a response
 
 ## UI (Minimal)
 
