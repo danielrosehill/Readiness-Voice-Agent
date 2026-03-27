@@ -58,7 +58,10 @@ export class GeminiLiveEngine implements VoiceEngineInterface {
 
       this.ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data as string);
+          const data =
+            typeof event.data === 'string'
+              ? JSON.parse(event.data)
+              : event.data;
           this.handleServerMessage(data);
         } catch (e) {
           this.emit({ type: 'error', message: `Parse error: ${e}` });
